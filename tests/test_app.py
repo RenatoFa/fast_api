@@ -79,11 +79,9 @@ def test_read_user(client, user):
     response = client.get('/users/1')
 
     assert response.status_code == HTTPStatus.OK
-    assert response.json() == {
-        'email': 'teste@test.com',
-        'password': 'testtest',
-        'username': 'Teste',
-    }
+    assert 'email' in response.json()
+    assert 'username' in response.json()
+    assert 'password' in response.json()
 
 
 def test_return_not_found_if_not_exist_get_user(client):
@@ -93,9 +91,10 @@ def test_return_not_found_if_not_exist_get_user(client):
     assert response.json() == {'detail': 'User not found'}
 
 
-def test_update_user(client, user):
+def test_update_user(client, user, token):
     response = client.put(
-        '/users/1',
+        f'/users/{user.id}',
+        headers={'Authorization': f'Bearer {token}'},
         json={
             'id': 1,
             'username': 'test2',
@@ -123,12 +122,15 @@ def test_return_not_found_if_not_update_exist_user(client):
         },
     )
 
-    assert response.status_code == HTTPStatus.NOT_FOUND
-    assert response.json() == {'detail': 'User not found'}
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json() == {'detail': 'Not authenticated'}
 
 
-def test_delete_user(client, user):
-    response = client.delete('/users/1')
+def test_delete_user(client, user, token):
+    response = client.delete(
+        f'/users/{user.id}',
+        headers={'Authorization': f'Bearer {token}'},
+    )
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'message': 'User deleted'}
@@ -139,5 +141,18 @@ def test_return_not_found_if_not_exist_delete_user(client):
         '/users/999',
     )
 
-    assert response.status_code == HTTPStatus.NOT_FOUND
-    assert response.json() == {'detail': 'User not found'}
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json() == {'detail': 'Not authenticated'}
+
+
+def test_get_token(client, user):
+    response = client.post(
+        '/token',
+        data={'username': user.email, 'password': user.clean_password},
+    )
+
+    token = response.json()
+
+    assert response.status_code == HTTPStatus.OK
+    assert token['token_type'] == 'Bearer'
+    assert 'access_token' in token
